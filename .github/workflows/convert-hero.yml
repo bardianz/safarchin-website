@@ -1,0 +1,46 @@
+name: Convert hero image to WebP
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - ".github/workflows/convert-hero.yml"
+      - "assets/nature-landing.avif"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  convert:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Convert AVIF to WebP
+        run: |
+          python -m pip install pillow pillow-avif-plugin
+          python - <<'PY'
+          from PIL import Image
+          import pillow_avif
+          image = Image.open("assets/nature-landing.avif").convert("RGB")
+          image.save("assets/nature-landing.webp", "WEBP", quality=82, method=6)
+          print(f"Converted {image.width}x{image.height} image to WebP")
+          PY
+      - name: Update page reference
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          page = Path("index.html")
+          old = page.read_text(encoding="utf-8")
+          new = old.replace("nature-landing.avif", "nature-landing.webp")
+          if old == new:
+              raise SystemExit("No AVIF hero reference found")
+          page.write_text(new, encoding="utf-8")
+          PY
+      - name: Commit WebP asset and page update
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add assets/nature-landing.webp index.html
+          git commit -m "Convert hero image to WebP"
+          git push
